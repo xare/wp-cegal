@@ -1,0 +1,17 @@
+{
+  "name": "xare/wp-cegal",
+  "description": "cegal plugin",
+  "type": "project",
+  "license": "GPL",
+  "authors": [{
+      "name": "cegal",
+      "email": "xare@katakrak.net"
+  }],
+  "minimum-stability": "dev",
+  "require": {
+    "guzzlehttp/guzzle": "^7.0"
+  },
+  "autoload": {
+      "psr-4": { "Inc\\cegal\\": "./inc" }
+  }
+}
