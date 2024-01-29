@@ -1,16 +1,21 @@
 <?php
-    /**
-     * @package cegal
-     */
+/**
+ * @package cegal
+ */
 
-    namespace Inc\cegal\Api\Callbacks;
-    use Inc\cegal\Base\BaseController;
+namespace Inc\cegal\Api\Callbacks;
+use Inc\cegal\Base\BaseController;
 
-    class AdminCallbacks extends BaseController {
+class AdminCallbacks extends BaseController {
 
     public function adminDashboard() {
-
         return require_once("{$this->plugin_templates_path}/adminDashboard.php");
+    }
+    public function adminLogger() {
+        return require_once("{$this->plugin_templates_path}/adminCegalLogger.php");
+    }
+    public function adminScanProduct() {
+        return require_once("{$this->plugin_templates_path}/adminCegalScanProduct.php");
     }
 
     public function textSanitize( $input ) {

@@ -9,6 +9,7 @@ use Inc\cegal\Api\Callbacks\AdminCallbacks;
 class Dashboard extends BaseController {
     public $settings;
     public $pages = [];
+	public $subpages = []; // Add this line to define subpages
     public $callbacks;
 
 
@@ -16,13 +17,14 @@ class Dashboard extends BaseController {
         $this->settings = new SettingsApi();
         $this->callbacks = new AdminCallbacks();
         $this->setPages();
+		$this->setSubpages();
         $this->setSettings();
 		$this->setSections();
 		$this->setFields();
         $this->settings
 			->addPages( $this->pages )
 			->withSubPage( 'Dashboard' )
-			//->addSubPages( $this->subpages )
+			->addSubPages( $this->subpages )
 			->register();
         /* $this->storeCegal(); */
 
@@ -42,7 +44,19 @@ class Dashboard extends BaseController {
 			]
 		];
 	}
-
+	// Define this new method to add your subpages
+    public function setSubpages() {
+        $this->subpages = [
+            [
+                'parent_slug' => 'Cegal', // Parent menu slug
+                'page_title' => 'Cegal Scan Product', // Page title
+                'menu_title' => 'Scan Product', // Menu title
+                'capability' => 'manage_options', // Capability
+                'menu_slug' => 'cegal_scan_product', // Menu slug
+                'callback' => [$this->callbacks, 'adminScanProduct'] // Callback function, define it in AdminCallbacks class
+            ]
+        ];
+    }
     public function setSettings()
 	{
 		$args = [

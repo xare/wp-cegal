@@ -1,0 +1,29 @@
+@startuml
+
+class CegalApi {
+    $url_host
+    $url_path
+    $cegalSettings
+    $url_user
+    $url_pass
+    ---
+    __construct()
+    + string query( $service, $isbn )
+    + array disponibilidad ( $isbn )
+    + mixed fetch_cover( $isbn )
+    + mixed create_cover( $isbn )
+    + array ficha( $isbn )
+    + string sinopsis( $isbn )
+    + array scanProducts( $batch_size, $offset )
+}
+
+class CegalApiDbManager {
+    + void insertFile( string $filepath, array $data, string $filename )
+    + void insertAttachment( string $filename, string $filepath )
+    + mixed isAttachment( string $filename )
+    + bool hasAttachment( int $product_id )
+    + int set_featured_image_for_product( int $file_id, string $ean )
+    + array getProducts( int $limit, int $offset)
+    + int countAllProducts()
+}
+@enduml

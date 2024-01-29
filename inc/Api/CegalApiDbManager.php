@@ -3,26 +3,43 @@
 namespace Inc\cegal\Api;
 
 class CegalApiDbManager {
+    const CEGAL_LOGGER_TABLE = 'cegal_logger';
+    public $cegalLoggerKeys = [
+        'date',
+        'ean', // int
+		'url', // int
+		'metadata', // json
+    ];
 
-    public function insertFile( $filepath, $data, $filename ) {
+    /**
+     * insertFile
+     *
+     * @param  string $filepath
+     * @param  array $data
+     * @param  string $filename
+     * @return mixed
+     */
+    public function insertFile( string $filepath, array $data, string $filename ): mixed {
         // Validate data before proceeding
-        if (empty($data)) {
-            var_dump('Data is empty. Skipping file creation.');
+        if ( empty( $data ) ) {
+            var_dump( 'Data is empty. Skipping file creation.' );
             return false;
         }
         try {
+
             file_put_contents( $filepath, $data['data'] );
+            var_dump( 'FILE SUCCES FULLY STORED IN THE SYSTEM at' . $filepath );
         } catch ( \Exception $exception ) {
-            var_dump('Could not create file: '.$exception->getMessage());
+            var_dump( 'Could not create file: ' . $exception->getMessage() );
             return false;
         }
-		return $this->insertAttachment($filename, $filepath);
+		return $this->insertAttachment( $filename, $filepath );
     }
     /**
      * CegalApiDbManager->insertAttachment
      * Inserts the file to the file manager.
      *
-     * @param  sring $filename
+     * @param  string $filename
      * @param  string $filepath
      * @return mixed
      */
@@ -139,7 +156,7 @@ class CegalApiDbManager {
      * @param  int $offset
      * @return array
      */
-    public function getProducts( int $limit = -1, int $offset = 0 ) : array {
+    public function getProducts( int $limit = -1, int $offset = 0 ): array {
         $args = [
             'status' => 'publish',
             'limit' => $limit,
@@ -153,7 +170,7 @@ class CegalApiDbManager {
      *
      * @return int
      */
-    public function countAllProducts() :int {
+    public function countAllProducts(): int {
         return count( wc_get_products( [
             'status' => 'publish',
             'limit' => -1,

@@ -26,8 +26,8 @@ class CegalApi {
 
 	}
 
-	public function query($service, $isbn) {
-		return 'http://'.$this->url_host.$this->url_path.'/'.$service.'?USUARIO='.$this->url_user.'&CLAVE='.$this->url_pass.'&ISBN='.$isbn;
+	public function query( $service, $isbn ): string {
+		return 'https://'.$this->url_host.$this->url_path.'/'.$service.'?USUARIO='.$this->url_user.'&CLAVE='.$this->url_pass.'&ISBN='.$isbn;
 	}
 
 	/**
@@ -60,11 +60,11 @@ class CegalApi {
   	public function fetch_cover( string $isbn ): mixed {
     	$query  = $this->query( 'fichalibro.xml.php', $isbn ).'&TIPOFICHA=C';
 		try {
-			$request = wp_remote_get($query, [ 'timeout' => 2 ]);
+			$request = wp_remote_get($query, [ 'timeout' => 4 ]);
 		} catch( ConnectException $connectException ) {
 			$error = ['message'=> $connectException->getMessage()];
 			error_log( 'Connection exception: ' . $connectException->getMessage() );
-			return json_encode( $error );
+			return false;
 		} catch ( RequestException $e ) {
 			error_log( 'Request exception: ' . $e->getMessage() );
 			if ($e->getResponse() instanceof ResponseInterface) {
@@ -79,15 +79,20 @@ class CegalApi {
 				// Handle other exceptions
 				$error['message'] = 'Error: ' . $e->getMessage();
 			}
-			return json_encode( $error );
+			error_log($error['message']);
+			return false;
 		} catch (\Exception $exception) {
 			$error['message'] = 'Error: ' . $exception->getMessage();
-			return json_encode( $error );
+			error_log($error['message']);
+			return false;
 		}
 
-		if ( isset( $request->errors ) && count( $request->errors ) > 0 ) return json_encode( $request->errors );
+		if ( isset( $request->errors ) && count( $request->errors ) > 0 ) {
+			var_dump( $request->errors );
+			return false;
+		}
 		$response = $request['response'];
-		if ( $response['code'] != 200 ) return [];
+		if ( $response['code'] != 200 ) return false;
 
 		$xml = simplexml_load_string( $request['body'] );
 		// Additional checks to ensure the XML and expected fields are present.
@@ -114,13 +119,11 @@ class CegalApi {
 		$isbn = str_replace('-','',$isbn);
 		$filename = $isbn.".jpg";
 		$data = $this->fetch_cover( $isbn );
-		if ( !is_array( $data ) || !$data || !empty($data['data']) ) {
-			$dataObject = json_decode( $data );
-			if ( isset( $dataObject->http_request_failed )) {
-				return $dataObject->http_request_failed;
-			}
+		if( !$data ){
+			error_log('Data from fetch_cover does not exist.');
 			return false;
 		}
+
 		$filepath = sprintf( "%s/portadas/%s", wp_upload_dir()[ 'basedir' ], $filename );
 		// First, check if the image exists in the database
 		$cegalApiDbManager = new CegalApiDbManager;
@@ -140,30 +143,42 @@ class CegalApi {
 		return ( $file_id > 0 ) ? get_post( $file_id ): false;
 	}
 
-  public function ficha( $isbn ) {
-    $query  = $this->query( 'fichalibro.xml.php' , $isbn).'&formato=XML';
-    $request = wp_remote_get( $query, [ 'timeout' => 2 ]);
-    if ( ! $request->code == 200 ) return [];
+  	/**
+  	 * ficha
+  	 *
+  	 * @param  mixed $isbn
+  	 * @return array
+  	 */
+  	public function ficha( $isbn ): array {
+		$query  = $this->query( 'fichalibro.xml.php' , $isbn).'&formato=XML';
+		$request = wp_remote_get( $query, [ 'timeout' => 2 ]);
+		if ( ! $request->code == 200 ) return [];
 
-	$xml = simplexml_load_string( $request->data );
+		$xml = simplexml_load_string( $request->data );
 
-    foreach ( $xml as $key => $value ) {
-      //dpm();
-      $book = array();
-      $book['isbn'] = $value->ISBN->__toString();
-      $book['title'] = $value->TITULO->__toString();
-      $book['ean'] = $value->EAN->__toString();
-      $book['price'] = $value->PRECIO_CON_IVA->__toString();
-      $book['year'] = substr($value->FECHA_PUBLICACION->__toString(), 2);
-      $book["pages"] = $value->NUMERO_PAGINAS->__toString();
-      $book['description'] = $this->sinopsis($isbn);
-      $book['portada'] = $this->create_cover($isbn);
-    }
-    return $book;
-   }
+		foreach ( $xml as $key => $value ) {
+			//dpm();
+			$book = array();
+			$book['isbn'] = $value->ISBN->__toString();
+			$book['title'] = $value->TITULO->__toString();
+			$book['ean'] = $value->EAN->__toString();
+			$book['price'] = $value->PRECIO_CON_IVA->__toString();
+			$book['year'] = substr($value->FECHA_PUBLICACION->__toString(), 2);
+			$book["pages"] = $value->NUMERO_PAGINAS->__toString();
+			$book['description'] = $this->sinopsis($isbn);
+			$book['portada'] = $this->create_cover($isbn);
+		}
+		return $book;
+   	}
 
 
-	public function sinopsis($isbn) {
+	/**
+	 * sinopsis
+	 *
+	 * @param  mixed $isbn
+	 * @return string
+	 */
+	public function sinopsis( $isbn ): string {
 		$query  = $this->query('fichalibro.xml.php', $isbn).'&TIPOFICHA=C';
 		$request = wp_remote_get($query, array('timeout' => 2));
 
@@ -176,7 +191,14 @@ class CegalApi {
 		return $sinopsis;
 	}
 
-	public function scanProducts($batch_size = 1, $offset = 0) {
+	/**
+	 * scanProducts
+	 *
+	 * @param  int $batch_size
+	 * @param  int $offset
+	 * @return array
+	 */
+	public function scanProducts( int $batch_size = 1, int $offset = 0 ): array {
 		// Read all products
 		// Query for all products
 		$eans = [];

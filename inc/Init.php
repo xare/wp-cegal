@@ -4,6 +4,7 @@ namespace Inc\cegal;
 
 use Inc\cegal\Base\CegalScanProductFormController;
 use Inc\cegal\Base\CegalScanProductsFormController;
+use Inc\cegal\Base\Cron;
 use Inc\cegal\Base\Enqueue;
 use Inc\cegal\Commands\CegalHelloCommand;
 use Inc\cegal\Commands\CegalScanProductsCommand;
@@ -27,7 +28,8 @@ final class Init
       CegalMediaCleanup::class,
       CegalScanProductsFormController::class,
       CegalScanProductFormController::class,
-      Enqueue::class
+      Enqueue::class,
+      Cron::class,
     ];
   }
 
