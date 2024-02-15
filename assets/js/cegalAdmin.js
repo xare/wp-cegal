@@ -94,29 +94,81 @@ async function updateProgress( action, cegalContainer ) {
     }
 }
 
-
 document.addEventListener("DOMContentLoaded", function() {
     const cegalContainer = document.querySelector("[data-container='cegal']");
     const terminalElement = document.querySelector(".terminal");
 
-    terminalElement.style.display = "none";
+    if(terminalElement) terminalElement.style.display = "none";
+
     const actions = [
         { buttonName: 'scan_products', action: 'cegal_scan_products', type: '' },
         { buttonName: 'scan_product', action: 'cegal_scan_product', type: '' },
         { buttonName: 'hello_world', action: 'cegal_hello_world', type: '' },
+        { buttonName: 'assign_to_product', action: 'cegal_assign_to_product', type: '' },
     ];
     console.info(actions);
     actions.forEach( async ({ buttonName, action, type }) => {
-        document.querySelector( `[name='${buttonName}']` ).addEventListener( "click" , async (event) => {
-            event.preventDefault();
+        const button = document.querySelector( `[name='${buttonName}']` );
+        if (button) {
+            button.addEventListener( "click" , async (event) => {
+                event.preventDefault();
+                console.info('clicked');
+                alert('clicked');
+                if(buttonName == 'scan_product') {
+                    const response = await makeAjaxRequest(action, {'isbn': document.querySelector("[name='isbn']").value});
+                    console.info(response.data);
+                    return;
+                }
+                const buttonElement = document.querySelector( `[name='${buttonName}']` );
+                const willProceed = await showAlert( type, buttonElement.value );
 
-            const buttonElement = document.querySelector( `[name='${buttonName}']` );
-            const willProceed = await showAlert( type, buttonElement.value );
+                if (willProceed) {
+                    terminalElement.style.display = "block";
+                    updateProgress( action, cegalContainer );
+                }
+            });
+        }
 
-            if (willProceed) {
-                terminalElement.style.display = "block";
-                updateProgress( action, cegalContainer );
+    });
+    // Select the table by its ID
+    var table = document.querySelector('[data-wp-lists="list:cegal_lines"]');
+
+    // Add click event listener to the table
+    if(table){
+        table.addEventListener('click', async function(e) {
+            console.info(e.target);
+            // Check if the clicked element is a button with the data-action attribute
+            if (e.target && e.target.nodeName === 'BUTTON'
+                && e.target.getAttribute('data-action') === 'assign-to-product') {
+                e.preventDefault(); // Prevent the default button action
+
+                var button = e.target; // The button that was clicked
+                var isbn = button.getAttribute('data-isbn'); // Get the ISBN from the button's data-isbn attribute
+
+                try {
+                    const response = await fetch(ajaxurl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: `action=assign_to_product&isbn=${encodeURIComponent(isbn)}`
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json(); // Parse the JSON from the response
+
+                    // Handle the response data
+                    console.log(data);
+                    button.innerText = 'Assigned';
+                    button.disabled = true;
+                } catch (error) {
+                    console.error('There has been a problem with your fetch operation:', error);
+                    button.disabled = false; // Optionally re-enable the button on error
+                }
             }
         });
-    });
+    }
 });

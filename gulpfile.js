@@ -21,9 +21,10 @@ var mapURL = '../maps';
 
 var jsSRC = './assets/js/';
 var jsAdmin = 'cegalAdmin.js';
+var jsScanProduct = 'cegalScanProduct.js';
 //var jsPagination = 'pagination.js';
 
-var jsFiles = [jsAdmin];
+var jsFiles = [jsAdmin, jsScanProduct];
 var jsURL = './dist/js/';
 var jsFolder = 'assets/js/';
 var jsDIST = './dist/js/';

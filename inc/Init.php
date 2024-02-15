@@ -2,6 +2,7 @@
 
 namespace Inc\cegal;
 
+use Inc\cegal\Base\CegalAssignToProductAjax;
 use Inc\cegal\Base\CegalScanProductFormController;
 use Inc\cegal\Base\CegalScanProductsFormController;
 use Inc\cegal\Base\Cron;
@@ -28,6 +29,7 @@ final class Init
       CegalMediaCleanup::class,
       CegalScanProductsFormController::class,
       CegalScanProductFormController::class,
+      CegalAssignToProductAjax::class,
       Enqueue::class,
       Cron::class,
     ];

@@ -59,16 +59,19 @@ class CegalApi {
    	*/
   	public function fetch_cover( string $isbn ): mixed {
     	$query  = $this->query( 'fichalibro.xml.php', $isbn ).'&TIPOFICHA=C';
+		$cegalApiDbLinesManager = new CegalApiDbLinesManager;
+		$cegalApiDbLinesManager->set_origin_url( $isbn, $query );
 		try {
-			$request = wp_remote_get($query, [ 'timeout' => 4 ]);
+			$response = wp_remote_get($query, [ 'timeout' => 140 ]);
 		} catch( ConnectException $connectException ) {
 			$error = ['message'=> $connectException->getMessage()];
 			error_log( 'Connection exception: ' . $connectException->getMessage() );
+			$cegalApiDbLinesManager->setError( $isbn, $error['message'] );
 			return false;
-		} catch ( RequestException $e ) {
-			error_log( 'Request exception: ' . $e->getMessage() );
-			if ($e->getResponse() instanceof ResponseInterface) {
-				$error['statusCode'] = $e->getResponse()->getStatusCode();
+		} catch ( RequestException $requestException ) {
+			error_log( 'Request exception: ' . $requestException->getMessage() );
+			if ($requestException->getResponse() instanceof ResponseInterface) {
+				$error['statusCode'] = $requestException->getResponse()->getStatusCode();
 				if ( $error['statusCode'] === 404 ) {
 					$error['message'] = 'Error: Resource not found';
 				} else {
@@ -80,30 +83,39 @@ class CegalApi {
 				$error['message'] = 'Error: ' . $e->getMessage();
 			}
 			error_log($error['message']);
+			$cegalApiDbLinesManager->setError( $isbn, $error['message'] );
 			return false;
 		} catch (\Exception $exception) {
 			$error['message'] = 'Error: ' . $exception->getMessage();
 			error_log($error['message']);
+			$cegalApiDbLinesManager->setError( $isbn, $error['message'] );
 			return false;
 		}
 
-		if ( isset( $request->errors ) && count( $request->errors ) > 0 ) {
-			var_dump( $request->errors );
+		if ( isset( $response->errors ) && count( $response->errors ) > 0 ) {
+			var_dump( $response->errors );
+			$errorString = '';
+			foreach($response->errors as $error) {
+				$errorString .= ' ' . $error;
+			}
+			$cegalApiDbLinesManager->setError( $isbn, $errorString );
 			return false;
 		}
-		$response = $request['response'];
-		if ( $response['code'] != 200 ) return false;
 
-		$xml = simplexml_load_string( $request['body'] );
+		$xmlString = wp_remote_retrieve_body( $response );
+		$xmlString = preg_replace('/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F]+/', '', $xmlString);
+		$xml = simplexml_load_string( $xmlString );
 		// Additional checks to ensure the XML and expected fields are present.
-		if (!$xml || empty($xml->PORTADA->IMAGEN_PORTADA) || empty($xml->PORTADA)) {
+		if ( !$xml || empty( $xml->LIBRO->PORTADA->IMAGEN_PORTADA ) || empty( $xml->LIBRO->PORTADA ) ) {
 			// Handle error - log or return false
+			error_log( 'Error: XML or expected fields not found.' );
+			$cegalApiDbLinesManager->setError( $isbn, 'Error: XML or expected fields not found.' );
 			return false;
 		}
 		return [
-			'data' => base64_decode( $xml->PORTADA->IMAGEN_PORTADA->__toString() ),
-			'image' => $xml->PORTADA->IMAGEN_PORTADA->__toString(),
-			'format' => $xml->PORTADA->FORMATO_PORTADA->__toString()
+			'data' => base64_decode( (string) $xml->LIBRO->PORTADA->IMAGEN_PORTADA ),
+			'image' => (string) $xml->LIBRO->PORTADA->IMAGEN_PORTADA,
+			'format' => (string) $xml->LIBRO->PORTADA->FORMATO_PORTADA
 		];
   	}
 
@@ -116,11 +128,13 @@ class CegalApi {
 	 */
 
 	public function create_cover(string $isbn): mixed {
+		$cegalApiDbLinesManager = new CegalApiDbLinesManager;
 		$isbn = str_replace('-','',$isbn);
 		$filename = $isbn.".jpg";
 		$data = $this->fetch_cover( $isbn );
 		if( !$data ){
 			error_log('Data from fetch_cover does not exist.');
+			$cegalApiDbLinesManager->setError( $isbn, 'Data from fetch_cover does not exist.' );
 			return false;
 		}
 
@@ -137,6 +151,7 @@ class CegalApi {
 				'guid' => preg_replace( '/\/\d{4}\/\d{1,2}\/portadas\//', '/portadas/', $existing_file[0]->guuid ),
 			]);
 			$file_id = $existing_file[0]->ID;
+			$cegalApiDbLinesManager->setError( $isbn, 'File.'. $file_id.' already exists.' );
 		} else {
 			$file_id = $cegalApiDbManager->insertFile( $filepath, $data, $filename );
 		}
@@ -147,12 +162,12 @@ class CegalApi {
   	 * ficha
   	 *
   	 * @param  mixed $isbn
-  	 * @return array
+  	 * @return mixed
   	 */
-  	public function ficha( $isbn ): array {
+  	public function ficha( $isbn ): mixed {
 		$query  = $this->query( 'fichalibro.xml.php' , $isbn).'&formato=XML';
 		$request = wp_remote_get( $query, [ 'timeout' => 2 ]);
-		if ( ! $request->code == 200 ) return [];
+		if ( ! $request->code == 200 ) return false;
 
 		$xml = simplexml_load_string( $request->data );
 
@@ -204,12 +219,17 @@ class CegalApi {
 		$eans = [];
 		$response = [];
 		$cegalApiDbManager = new CegalApiDbManager;
+		$cegalApiDbLinesManager = new CegalApiDbLinesManager;
+		$allProducts = $cegalApiDbManager->countAllProducts();
 		$products = $cegalApiDbManager->getProducts( $batch_size, $offset );
 		$hasMore = !empty( $products );
 		foreach( $products as $product ) {
 			$ean = get_post_meta( $product->get_id(), '_ean', true );
-			$this->create_cover( $ean );
-			$cegalApiDbManager->set_featured_image_for_product( $product->get_id(), $ean );
+			$file = $this->create_cover( $ean );
+
+			$cegalApiDbManager->set_featured_image_for_product( $file->get_id(), $ean );
+			$line_id = $cegalApiDbLinesManager->insertLinesData(1,$ean);
+			$cegalApiDbLinesManager->setBook($product->get_title(), $product->get_id(), $line_id);
 			$response[] = [ 'id' => $product->get_id() ];
 			array_push( $eans, $ean );
 		}

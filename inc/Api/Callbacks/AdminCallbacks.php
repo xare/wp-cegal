@@ -17,6 +17,12 @@ class AdminCallbacks extends BaseController {
     public function adminScanProduct() {
         return require_once("{$this->plugin_templates_path}/adminCegalScanProduct.php");
     }
+    public function adminLogTable() {
+        return require_once("{$this->plugin_templates_path}/adminCegalLogs.php");
+    }
+    public function adminLinesTable() {
+        return require_once("{$this->plugin_templates_path}/adminCegalLines.php");
+    }
 
     public function textSanitize( $input ) {
         $output = get_option('cegal_settings');

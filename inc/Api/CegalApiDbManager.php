@@ -2,8 +2,31 @@
 
 namespace Inc\cegal\Api;
 
+use WP_Query;
+
 class CegalApiDbManager {
+    const CEGAL_LOG_TABLE = 'cegal_log';
+    const CEGAL_LINES_TABLE = 'cegal_lines';
     const CEGAL_LOGGER_TABLE = 'cegal_logger';
+    static $cegalLogKeys = [
+		'start_date', // date
+		'end_date', // date
+		'status', // string waiting | enqueued | processed
+		'scanned_items', // int number of lines
+        'processed_items', // int number of lines
+	];
+
+    static $cegalLinesKeys = [
+        'log_id', // int relation oneToMany with dilve_log
+        'isbn',    // string
+        'path',    // string
+        'url_origin', // string
+        'url_target', // string
+        'date',    // date
+        'isError', // boolean
+        'error',   // string
+        'attempts', // int
+    ];
     public $cegalLoggerKeys = [
         'date',
         'ean', // int
@@ -115,7 +138,8 @@ class CegalApiDbManager {
 
         // Get the file path of the featured image
         $thumbnail_path = get_attached_file($thumbnail_id);
-
+        var_dump($thumbnail_path);
+        var_dump($expected_file_path);
         // Compare the paths
         if ($thumbnail_path === $expected_file_path) {
             return true;
@@ -129,9 +153,9 @@ class CegalApiDbManager {
      *
      * @param  int $file_id
      * @param  string $ean
-     * @return int
+     * @return mixed
      */
-    function set_featured_image_for_product( int $file_id, string $ean): int {
+    function set_featured_image_for_product( int $file_id, string $ean): mixed {
 		$args = array(
 			'post_type' => 'product',
 			'meta_query' => array(
@@ -141,10 +165,14 @@ class CegalApiDbManager {
 				),
 			),
 		);
-    	$product = get_post($args);
+
+    	$products = get_posts($args);
+        if ( empty( $products )) return false;
+        $product = $products[0];
+
         // Check if a thumbnail is already set for the product
-        if ( !$this->hasAttachment($product->ID)) {
-            set_post_thumbnail($product->ID, $file_id);
+        if ( !$this->hasAttachment( $product->ID ) ) {
+            set_post_thumbnail( $product->ID, $file_id );
         }
         return $product->ID;
     }
@@ -176,5 +204,35 @@ class CegalApiDbManager {
             'limit' => -1,
         ]));
 	}
+
+    public function assignToProduct( string $isbn ): bool {
+        global $wpdb; // Access the WordPress database object
+
+        // Escape the EAN to prevent SQL injection
+        $ean_escaped = esc_sql($isbn);
+        var_dump($ean_escaped);
+        // Build the query to find the attachment post with the specified filename
+        $query = "
+            SELECT ID
+            FROM $wpdb->posts
+            WHERE post_title LIKE %s
+            AND post_type = 'attachment'
+        ";
+
+        $like_pattern = '%' . $wpdb->esc_like($ean_escaped . '.jpg') . '%';
+        $attachment_id = $wpdb->get_var($wpdb->prepare($query, $like_pattern));
+
+        // If no attachment is found, return a placeholder or a message
+        if (!$attachment_id) {
+            return false;
+        }
+        // Assuming set_featured_image_for_product does what it says
+
+        $this->set_featured_image_for_product($attachment_id, $isbn);
+
+        wp_reset_postdata(); // Reset post data to the original query
+        return true;
+
+    }
 
 }

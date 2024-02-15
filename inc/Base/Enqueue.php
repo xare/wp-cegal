@@ -8,10 +8,15 @@ namespace Inc\cegal\Base;
 
 use Inc\cegal\Base\BaseController;
 class Enqueue extends BaseController {
-  public function register(){
+  public function register() {
     $page = filter_input(INPUT_GET, 'page', FILTER_DEFAULT);
-    if (is_admin() && $page === 'Cegal')
-      add_action ( 'admin_enqueue_scripts', [$this, 'enqueue_admin']);
+    if (is_admin() && $page === 'cegal') {
+      if($page == 'cegal_scan_product')
+        add_action ( 'admin_enqueue_scripts', [$this, 'enqueue_scan_product_admin']);
+      else
+        add_action ( 'admin_enqueue_scripts', [$this, 'enqueue_admin']);
+    }
+
     //add_action ( 'enqueue_scripts', [$this, 'enqueue']);
   }
 function enqueue() {
@@ -27,4 +32,7 @@ function enqueue() {
         wp_enqueue_style('CegalAdminStyle', $this->plugin_url .'dist/css/cegalAdmin.min.css');
         wp_enqueue_script('CegalAdminScript', $this->plugin_url .'dist/js/cegalAdmin.min.js');
       }
+  function enqueue_scan_product_admin() {
+    wp_enqueue_script('CegalAdminScript', $this->plugin_url .'dist/js/cegalScanProduct.min.js');
+  }
 }

@@ -28,18 +28,18 @@ class CegalScanProductFormController {
      */
 
      public function ajaxHandleScanProduct() {
-        check_ajax_referer('cegal_scan_products_form', 'cegal_nonce');
+        check_ajax_referer('cegal_scan_product_form', 'cegal_nonce');
         update_option('cegal_admin_notice', 'File Checked!');
         $cegalApi = new CegalApi;
-        $isbn = $_POST['cegal_scan_product'];
+        $isbn = $_POST['isbn'];
         $response = $cegalApi->create_cover( $isbn );
         if ( is_array( $response ) && strstr( $response[0], 'cURL error 28' ) ) {
             $html = "failed";
         } else {
-            $html = "<img src='" . $response->guid . "' />";
+            $html = $response;
         }
 
-        wp_send_json_success( ['response'=>$response, 'message' => $html ] );
+        wp_send_json_success( ['response' => $response, 'message' => $html ] );
      }
 
 }

@@ -54,6 +54,22 @@ class Dashboard extends BaseController {
                 'capability' => 'manage_options', // Capability
                 'menu_slug' => 'cegal_scan_product', // Menu slug
                 'callback' => [$this->callbacks, 'adminScanProduct'] // Callback function, define it in AdminCallbacks class
+			],
+			[
+                'parent_slug' => 'Cegal', // Parent menu slug
+                'page_title' => 'Cegal Log', // Page title
+                'menu_title' => 'Cegal Log Table', // Menu title
+                'capability' => 'manage_options', // Capability
+                'menu_slug' => 'cegal_log_table', // Menu slug
+                'callback' => [$this->callbacks, 'adminLogTable'] // Callback function, define it in AdminCallbacks class
+            ],
+			[
+                'parent_slug' => 'Cegal', // Parent menu slug
+                'page_title' => 'Cegal Lines', // Page title
+                'menu_title' => 'Cegal Lines Table', // Menu title
+                'capability' => 'manage_options', // Capability
+                'menu_slug' => 'cegal_lines_table', // Menu slug
+                'callback' => [$this->callbacks, 'adminLinesTable'] // Callback function, define it in AdminCallbacks class
             ]
         ];
     }

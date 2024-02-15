@@ -1,13 +1,13 @@
 <?php
-use Inc\Geslib\Api\GeslibLoggerListTable;
+use Inc\cegal\Api\CegalLoggerListTable;
 ?>
 
 <div class="wrap">
-  <h1>Geslib DASHBOARD</h1>
+  <h1>Cegal DASHBOARD</h1>
    <?php settings_errors(); ?>
    <?php
       global $wpdb;
-      $loggerTable = $wpdb->prefix . 'geslib_logger'; // Replace with your actual table name
+      $loggerTable = $wpdb->prefix . 'cegal_logger'; // Replace with your actual table name
 
       // Fetch distinct types
       $type_sql = "SELECT DISTINCT type FROM {$loggerTable}";
@@ -71,11 +71,11 @@ use Inc\Geslib\Api\GeslibLoggerListTable;
 </form>
 
    <?php
-        $wp_list_table = new GeslibLoggerListTable();
+        $wp_list_table = new CegalLoggerListTable();
         $wp_list_table->prepare_items();
         // Render the table
-        echo "<form method='post' name='geslib_logger_search' action='".$_SERVER['PHP_SELF']."?page=geslib_logger'>";
-        $wp_list_table->search_box("Geslib Logger Search", "search_geslib_logger");
+        echo "<form method='post' name='cegal_logger_search' action='".$_SERVER['PHP_SELF']."?page=cegal_logger'>";
+        $wp_list_table->search_box("Cegal Logger Search", "search_cegal_logger");
         echo "</form>";
         $wp_list_table->display();
     ?>
