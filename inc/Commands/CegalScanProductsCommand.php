@@ -36,32 +36,39 @@ class CegalScanProductsCommand {
      */
     public function execute( $args, $assoc_args ) {
         $cegalApi = new CegalApi;
+
+
         $cegalApiDbManager = new CegalApiDbManager;
         $cegalApiDbLogManager = new CegalApiDbLogManager;
         $cegalApiDbLinesManager = new CegalApiDbLinesManager;
         $batch_size = 10;
         $totalLines = $cegalApiDbManager->countAllProducts();
         $products = $cegalApiDbManager->getProducts();
-		$response = [];
         $i = 0;
-        WP_CLI::line( 'Number of products: ' . $totalLines );
+        WP_CLI::line( 'Number of products: ' . count($products) );
         $log_id = $cegalApiDbLogManager->insertLogData('logged', $totalLines);
         foreach($products as $product) {
-            $ean = get_post_meta( $product->get_id(), '_ean', true );
+            $ean = get_post_meta( $product->ID, '_ean', true );
+            if ($cegalApi->validateEAN($ean) === false) {
+                WP_CLI::line( 'Invalid EAN: ' . $ean );
+                continue;
+            }
             WP_CLI::line( 'Product scanned: ' . $ean);
-            $line_id = $cegalApiDbLinesManager->insertLinesData( $log_id, $ean );
-            if ( $cegalApiDbManager->hasAttachment( $product->get_id() ) ) {
+            $filepath = sprintf("%s/portadas/%s", wp_upload_dir()['basedir'], $ean.'.jpg');
+            $line_id = $cegalApiDbLinesManager->insertLinesData( $log_id, $ean, $filepath );
+            if ( $cegalApiDbManager->hasAttachment( $product->ID ) ) {
+                WP_CLI::line( 'Product ean: ' . $ean. 'has already a cover.' );
                 $cegalApiDbLinesManager->setError( $ean, 'This product has already a cover.' );
                 continue;
             }
             if ($file = $cegalApi->create_cover( $ean )) {
 			    $cegalApiDbManager->set_featured_image_for_product( $file->ID, $ean );
-			    $cegalApiDbLinesManager->setBook($product->get_title(), $product->get_id(), $line_id);
-                WP_CLI::line( 'Product Title: ' . $product->get_title() );
+			    $cegalApiDbLinesManager->setBook($product->post_title, $product->ID, $line_id);
+                WP_CLI::line( 'Product Title: ' . $product->post_title );
             }
-        }
 
-        var_dump( $response );
+        }
+        $cegalApiDbLogManager->setLogStatus($log_id, 'processed');
         WP_CLI::line( 'All products scanned ' );
     }
 }

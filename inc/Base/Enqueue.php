@@ -10,7 +10,7 @@ use Inc\cegal\Base\BaseController;
 class Enqueue extends BaseController {
   public function register() {
     $page = filter_input(INPUT_GET, 'page', FILTER_DEFAULT);
-    if (is_admin() && $page === 'cegal') {
+    if (is_admin() && $page === 'Cegal') {
       if($page == 'cegal_scan_product')
         add_action ( 'admin_enqueue_scripts', [$this, 'enqueue_scan_product_admin']);
       else

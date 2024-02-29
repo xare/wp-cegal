@@ -29,8 +29,12 @@ async function makeAjaxRequest( action, additionalData = {} ) {
         formData.append('cegal_scan_product', document.querySelector("[name='isbn']").value)
 
     console.info( 'inside makeAjaxRequest' );
-    for ( const [ key, value ] of Object.entries( additionalData ) ) {
-        formData.append( key, value );
+    if( additionalData ) {
+        for (const [key, value] of Object.entries( additionalData )) {
+            formData.append( key, value );
+        }
+    } else {
+        formData.append('cegal_nonce', document.querySelector("#cegal_nonce").value);
     }
     console.info( formData );
     const response = await fetch( ajaxurl, {
@@ -38,6 +42,7 @@ async function makeAjaxRequest( action, additionalData = {} ) {
         credentials: "same-origin",
         body: formData
     });
+    console.info(response);
     try {
         const jsonResponse = await response.json();
         console.info( jsonResponse );
@@ -55,7 +60,7 @@ async function makeAjaxRequest( action, additionalData = {} ) {
 
 async function updateProgress( action, cegalContainer ) {
     let offset = 0;
-    const batchSize = 10; // Process 1 records at a time
+    const batchSize = 1; // Process 1 records at a time
 
     while (true) {
         const additionalData = {
@@ -63,6 +68,7 @@ async function updateProgress( action, cegalContainer ) {
             'batch_size': batchSize
         };
         const response = await makeAjaxRequest(action, additionalData);
+        console.info(response);
         console.info(response.data);
         const JsonData = typeof response.data === 'string' ? JSON.parse(response.data) :
                 (response.data instanceof Object ? response.data : '');
@@ -82,6 +88,9 @@ async function updateProgress( action, cegalContainer ) {
             cegalContainer.innerHTML += `<div>${JsonData.message}</div>`;
         }
         cegalContainer.innerHTML += `<div>Batch processed.${JsonData[0].id} - ${JsonData.eans[0]} Current offset: ${offset} // - Progress ${JsonData.progress}</div>`;
+        cegalContainer.innerHTML += JsonData.eans.forEach( (ean) =>{
+            return `<div>EAN ${ean}</div>`;
+        });
         cegalContainer.scrollTop = cegalContainer.scrollHeight;
         if ( action == "cegal_scan_products" || action == "cegal_hello_world" ) {
             if ( !JsonData.hasMore || JsonData.hasMore == 0 ) {
@@ -112,8 +121,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if (button) {
             button.addEventListener( "click" , async (event) => {
                 event.preventDefault();
-                console.info('clicked');
-                alert('clicked');
                 if(buttonName == 'scan_product') {
                     const response = await makeAjaxRequest(action, {'isbn': document.querySelector("[name='isbn']").value});
                     console.info(response.data);

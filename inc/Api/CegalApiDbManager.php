@@ -1,6 +1,9 @@
 <?php
 
 namespace Inc\cegal\Api;
+require_once( ABSPATH . 'wp-admin/includes/image.php' );
+require_once( ABSPATH . 'wp-admin/includes/file.php' );
+require_once( ABSPATH . 'wp-admin/includes/media.php' );
 
 use WP_Query;
 
@@ -49,7 +52,6 @@ class CegalApiDbManager {
             return false;
         }
         try {
-
             file_put_contents( $filepath, $data['data'] );
             var_dump( 'FILE SUCCES FULLY STORED IN THE SYSTEM at' . $filepath );
         } catch ( \Exception $exception ) {
@@ -83,7 +85,6 @@ class CegalApiDbManager {
             wp_update_attachment_metadata(
                 $attachment_id,
                 wp_generate_attachment_metadata( $attachment_id, $filepath ) );
-
             return $attachment_id ;
         } catch(\Exception $exception) {
             error_log( "Exception: ".$exception->getMessage() );
@@ -126,7 +127,7 @@ class CegalApiDbManager {
 
         // Construct the expected file path
         $upload_dir = wp_upload_dir();
-        $expected_file_path = $upload_dir['basedir'] . '/portada/' . $ean . '.jpg';
+        $expected_file_path = $upload_dir['basedir'] . '/portadas/' . $ean . '.jpg';
 
         // Get the ID of the product's featured image
         $thumbnail_id = get_post_thumbnail_id($product_id);
@@ -138,8 +139,8 @@ class CegalApiDbManager {
 
         // Get the file path of the featured image
         $thumbnail_path = get_attached_file($thumbnail_id);
-        var_dump($thumbnail_path);
-        var_dump($expected_file_path);
+        //var_dump($thumbnail_path);
+        //var_dump($expected_file_path);
         // Compare the paths
         if ($thumbnail_path === $expected_file_path) {
             return true;
@@ -188,9 +189,31 @@ class CegalApiDbManager {
         $args = [
             'status' => 'publish',
             'limit' => $limit,
-			'offset' => $offset
+			'offset' => $offset,
+            'post_type' => 'product',
+            'meta_query' => [
+                [
+                    'key' => '_thumbnail_id',
+                    'compare' => 'NOT EXISTS'
+                ]
+            ],
         ];
-        return wc_get_products($args);
+        global $wpdb;
+
+        $posts = $wpdb->get_results( "
+            SELECT * FROM $wpdb->posts
+            WHERE ID NOT IN (
+                SELECT post_id from $wpdb->postmeta
+                WHERE meta_key = '_thumbnail_id'
+            )
+            AND post_type = 'product'
+            AND post_status = 'publish'
+        ", OBJECT_K );
+        return $posts;
+        /* var_dump( count($posts) );
+        die;
+
+        return wc_get_products($args); */
     }
 
     /**

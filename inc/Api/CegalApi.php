@@ -7,6 +7,8 @@ use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
 use Inc\cegal\Api\CegalApiDbManager;
+use Inc\cegal\Api\CegalApiDbLogManager;
+use Inc\cegal\Api\CegalApiDbLinesManager;
 use Psr\Http\Message\ResponseInterface;
 
 class CegalApi {
@@ -209,34 +211,96 @@ class CegalApi {
 	/**
 	 * scanProducts
 	 *
-	 * @param  int $batch_size
-	 * @param  int $offset
-	 * @return array
+	 * @return string
 	 */
-	public function scanProducts( int $batch_size = 1, int $offset = 0 ): array {
+	public function scanProducts( $log_id, $batch_size = -1, $offset = 0): string {
+		global $wpdb;
 		// Read all products
 		// Query for all products
-		$eans = [];
-		$response = [];
 		$cegalApiDbManager = new CegalApiDbManager;
+		$cegalApiDbLogManager = new CegalApiDbLogManager;
 		$cegalApiDbLinesManager = new CegalApiDbLinesManager;
-		$allProducts = $cegalApiDbManager->countAllProducts();
-		$products = $cegalApiDbManager->getProducts( $batch_size, $offset );
+		// Read all products.
+		// Query for all products.
+		$batch_size = (isset($_POST['batch_size']) && $_POST['batch_size'] != null) ? $_POST['batch_size'] : $batch_size;
+		$offset = (isset($_POST['offset']) && $_POST['offset'] != null) ? $_POST['offset']: $offset;
+		/* $args = [
+			'status' => 'publish',
+			'limit' => $batch_size,
+			'offset' => $offset
+		];
+		$products = wc_get_products($args); */
+		$query = 'SELECT * FROM {$wpdb->posts}
+			WHERE ID NOT IN (
+				SELECT post_id from {$wpdb->postmeta}
+				WHERE meta_key = "_thumbnail_id"
+			)
+			AND post_type = "product"
+			AND post_status = "publish"
+			LIMIT {$offset}, {$batch_size}';
+		$products = $wpdb->get_results( $query, OBJECT_K );
+		$eans = [];
 		$hasMore = !empty( $products );
+		$totalLines = $cegalApiDbManager->countAllProducts();
+		$progress = 0;
 		foreach( $products as $product ) {
-			$ean = get_post_meta( $product->get_id(), '_ean', true );
-			$file = $this->create_cover( $ean );
-
-			$cegalApiDbManager->set_featured_image_for_product( $file->get_id(), $ean );
-			$line_id = $cegalApiDbLinesManager->insertLinesData(1,$ean);
-			$cegalApiDbLinesManager->setBook($product->get_title(), $product->get_id(), $line_id);
+			error_log('Inside Cron. Product ID: '. $product->ID );
+			$ean = get_post_meta( $product->ID, '_ean', true );
+			if ($this->validateEAN($ean) == false) continue;
+			error_log('Inside Cron. EAN: '. $ean );
+			$filepath = sprintf("%s/portadas/%s", wp_upload_dir()['basedir'], $ean.'.jpg');
+			error_log('Inside Cron. Filepath: '. $filepath );
+			$line_id = $cegalApiDbLinesManager->insertLinesData($log_id, $ean, $filepath);
+			if ( $cegalApiDbManager->hasAttachment( $product->ID ) ) {
+				error_log('This product with EAN: '. $ean . ' has already a cover.' );
+				$cegalApiDbLinesManager->setError( $ean, 'This product has already a cover.' );
+				continue;
+			}
+			if ($file = $this->create_cover( $ean )) {
+			    $cegalApiDbManager->set_featured_image_for_product( $file->ID, $ean );
+			    $cegalApiDbLinesManager->setBook($product->post_title, $product->ID, $line_id);
+            }
+			$cegalApiDbLogManager->setLogStatus($log_id, 'processed');
 			$response[] = [ 'id' => $product->get_id() ];
+			error_log('Offset now: '. $offset );
+			$progress = ( $offset / $totalLines ) * 100;
+			error_log('Progress now: '. $progress );
 			array_push( $eans, $ean );
 		}
 		$response['hasMore'] = $hasMore;
 		$response['eans'] = $eans;
 		$response['message'] = $batch_size." books have been processed: ";
-        return $response ;
+        $response['progress'] = number_format($progress, 2)." %";
+		return json_encode( $response );
     }
+
+
+	function validateEAN($ean) {
+		// Check if the EAN is a valid length and contains only digits
+		if (strlen($ean) != 13 || !ctype_digit($ean)) {
+			return false;
+		}
+
+		// Split the EAN into its individual digits
+		$digits = str_split($ean);
+
+		// Calculate the checksum
+		$sum = 0;
+		foreach ($digits as $position => $digit) {
+			if ($position < 12) { // Exclude the last digit (check digit) from calculation
+				if ($position % 2 == 0) { // Even-positioned digits (considering the first digit as position 0)
+					$sum += $digit; // Add directly
+				} else { // Odd-positioned digits
+					$sum += 3 * $digit; // Multiply by 3 and add
+				}
+			}
+		}
+
+		// Calculate the check digit and compare with the last digit of the EAN
+		$checkDigit = (10 - ($sum % 10)) % 10;
+
+		// Return true if the check digit matches the last digit, false otherwise
+		return $checkDigit == $digits[12];
+	}
 
 }

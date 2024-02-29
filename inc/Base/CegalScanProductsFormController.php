@@ -54,9 +54,12 @@ class CegalScanProductsFormController extends BaseController
     public function ajaxHandleScanProducts() {
         check_ajax_referer('cegal_scan_products_form', 'cegal_nonce');
         update_option('cegal_admin_notice', 'File Checked!');
+        $cegalApi = new CegalApi;
+        $response = $cegalApi->scanProducts();
+
         $batch_size = ( isset( $_POST['batch_size'] ) && $_POST['batch_size'] != null ) ? $_POST['batch_size']  : -1;
 		$offset = ( isset( $_POST['batch_size'] ) && $_POST['batch_size'] != null ) ? $_POST['batch_size'] : 0;
-        $cegalApi = new CegalApi;
+
         $cegalApiDbManager = new CegalApiDbManager;
         $totalLines = $cegalApiDbManager->countAllProducts();
         var_dump($totalLines);
